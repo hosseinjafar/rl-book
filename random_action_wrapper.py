@@ -17,6 +17,8 @@ class RandomActionWrapper(gym.ActionWrapper):
     
 if __name__=="__main__":
     env = RandomActionWrapper(gym.make("CartPole-v0"))
+    # adding monitor wrapper
+    # env = gym.wrappers.Monitor(env, "recording")
     
     obs = env.reset()
     total_reward = 0.0
