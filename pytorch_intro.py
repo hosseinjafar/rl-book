@@ -80,12 +80,39 @@ def example_GAN():
             # transform (210, 160, 3) -> (3, 210, 160)
             new_obs = np.moveaxis(new_obs, 2, 0)
             return new_obs.astype(np.float32)
-        
+    device = "cuda"
     envs = [
         InputWrapper(gym.make(name)) for name in ('Breakout-v0', 'AirRaid-v0', 'Pong-v0')
     ]
     input_shape = envs[0].observation_space.shape
     
+    net_discr = Discriminator(input_shape).to(device)
+    net_gener = Generator(output_shape=input_shape).to(device)
+    gen_optimizer = torch.optim.Adam(
+        net_gener.parameters(), 
+        lr=LEARNING_RATE, 
+        betas=(0.5, 0.999))
+    dis_optimizer = torch.optim.Adam(
+        params=net_discr.parameters(),
+        lr=LEARNING_RATE,
+        betas=(0.5, 0.999))
+    writer = SummaryWriter()
+
+    gen_losses = []
+    dis_losses = []
+    iter_no = 0
+    true_labels_v = torch.ones(BATCH_SIZE, dtype=torch.float32, device=device)
+    fake_labels_v = torch.zeros(BATCH_SIZE, device=device)
+
+    for batch_v in iterate_batches(envs):
+        # fake samples generation. input is 4D: btach, filgers, x, y
+        gen_input_v = torch.FloatTensor(
+            BATCH_SIZE, 
+            LATENT_VECTOR_SIZE, 1, 1).normal_(0, 1).to(device)
+        batch_v = batch_v.to(device)
+        gen_output_v = net_gener(gen_input_v)
+        
+
 def iterate_batches(envs, batch_size=BATCH_SIZE):
     batch = [e.reset() for e in envs]
     env_gen = iter(lambda: random.choice(envs), None)
