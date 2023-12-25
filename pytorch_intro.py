@@ -1,6 +1,10 @@
 import torch.nn as nn
 import torch
 
+import numpy as np
+import gym
+import cv2
+
 def example_linear():
     l = nn.Linear(2, 5)
     print(l.weight)
@@ -58,6 +62,49 @@ def example_customModule(training=False):
             loss_t.backward()
             optimizer.step()
             optimizer.zero_grad()
+
+def example_GAN():
+    class InputWrapper(gym.ObservationWrapper):
+        def __init__(self, *args):
+            super(InputWrapper, self).__init__(*args)
+            assert isinstance(self.observation_space, gym.spaces.Box)
+            old_space = self.observation_space
+            self.observation_space = gym.spaces.Box(
+                self.observation(old_space.low),
+                self.observation(old_space.high),
+                dtype=np.float32)
+        def observation(self, observation):
+            new_obs = cv2.resize(
+                observation, (IMAGE_SIZE, IMAGE_SIZE)
+            )
+            # transform (210, 160, 3) -> (3, 210, 160)
+            new_obs = np.moveaxis(new_obs, 2, 0)
+            return new_obs.astype(np.float32)
+        
+    envs = [
+        InputWrapper(gym.make(name)) for name in ('Breakout-v0', 'AirRaid-v0', 'Pong-v0')
+    ]
+    input_shape = envs[0].observation_space.shape
+    
+def iterate_batches(envs, batch_size=BATCH_SIZE):
+    batch = [e.reset() for e in envs]
+    env_gen = iter(lambda: random.choice(envs), None)
+    while True:
+        e = next(env_gen)
+        obs, reward, is_done, _, _ = e.step(e.action_space.sample())
+        if np.mean(obs) > 0.01:
+            batch.append(obs)
+        if len(batch) == batch_size:
+            # Normalizing input between -1 to 1
+            batch_np = np.array(batch, dtype=np.float32)
+            batch_np *= 2. / 255. - 1.
+            yield torch.tensor(batch_np)
+            batch.clear()
+
+        if is_done:
+            e.reset()
+
+
 
 if __name__ == '__main__':
     # example_linear()
